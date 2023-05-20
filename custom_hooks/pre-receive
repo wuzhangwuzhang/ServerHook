@@ -1,0 +1,170 @@
+#!/usr/bin/env bash
+#pre-receive script
+#set -x #for debugging
+
+keyword_list=(
+    '^fix'          #bug修复
+	'^Fix'          #bug修复
+    '^fixed'        #bug修复
+    '^Fixed'        #bug修复
+    '^task'         #完成任务
+	'^Task'         #完成任务
+	'^subTask'      #完成子任务
+	'^SubTask'      #完成子任务
+    '^test'         #测试用例
+    '^perf'         #性能    
+    '^docs'         #文档
+    '^chore'        #其它
+    '^depc'         #依赖
+    '^[ci skip]'    #自动化
+)
+
+check_branchs=(
+	"dev"				#dev
+	"devob2"			#devob2
+	"oversearelease"	#oversearelease
+)
+
+# Concatenate keyword_list
+separator="|"
+formatStr=$( printf "${separator}%s" "${keyword_list[@]}" )
+regex="$( printf "${separator}%s" "${keyword_list[@]}" )"
+# remove leading separator
+regex="${regex:${#separator}}"
+
+
+flag=0
+validate_ref()
+{
+    # --- Arguments
+    oldrev=$(git rev-parse $1)
+    newrev=$(git rev-parse $2)
+    refname="$3"
+	#echo 'oldrev:'$oldrev
+	#echo 'newrev:'$newrev
+	#echo 'refname:'$refname
+
+	IFS='/' read -ra arr <<< "$refname"
+	#echo ${#arr[@]}
+	if [ "${#arr[@]}" -ge 5 ]; then
+	  	echo "开发分支提交，不检查单号&&分支"
+		exit 0
+	fi
+
+
+	branch="${arr[-1]}"
+	#echo "branch:$branch"
+	# 使用循环遍历整个数组，并判断每个元素是否包含 "err" 子字符串
+	index=0
+	for element in "${check_branchs[@]}"; do
+		let index++ 
+		if [[ "$element" == $branch ]]; then
+			#echo "$element contains $branch index:${index}."
+			break
+		fi
+	done
+
+	#echo $index  ${#arr[@]}
+	if [ ${index} == ${#arr[@]} ]; then
+		echo "no need check"
+		exit 0
+	fi
+
+    commitList=`git rev-list $oldrev..$newrev`
+    split=($commitList)
+	length=${#split[@]}
+    if [ $length -gt 0 ];then
+        for s in ${split[@]}
+        do
+            msg=`git cat-file commit $s | sed '1,/^$/d'`
+			#echo $msg 
+            if [ ${#msg} -lt 5 ];then
+                exit 1
+            else				
+				#trimedStr=$(echo -e $msg | sed ':a;N;$!ba;s/\n//g')
+				#echo "去除换行符:" $trimedStr
+				if [[ $msg == *"Admin"* ]] || [[ $msg == *"admin"* ]]; then
+					echo "管理员特批提交"
+	                flag=0
+	                exit 0
+				elif [[ $msg == *"Merge"* ]] || [[ $msg == *"merge"* ]]; then
+					# split string into lines
+					IFS=$'\n' read -d '' -ra lines <<< "$msg"				
+					mergeBranchInfo=${lines[0]}
+					commitLogInfo=${lines[1]}
+					mergeLog=${lines[2]}
+					#echo "[branchInfo]:$mergeBranchInfo"
+					#echo "[commitInfo]:$commitLogInfo"
+					#echo "[mergeInfo]:$mergeLog"
+					
+
+					trimedStr=$(echo -e $commitLogInfo | sed ':a;N;$!ba;s/\n//g')
+					#echo "[Trim Log Blank]:" $trimedStr
+
+					keyword=$(echo "$trimedStr" | awk '{print $1}')
+					#echo "[keyword]:$keyword"
+
+					regex_jriaId='SLPK-[0-9]+'
+
+					if [[ $trimedStr =~ $regex_jriaId ]]; then
+						jiraId=${BASH_REMATCH[0]}
+						#echo "[jiraId]:$jiraId"
+					else
+						echo "No jiraId found in commit log."
+						exit 1
+					fi
+
+					# define regular expression
+					regex_mergeId='![0-9]+'
+
+					# check if there is a match
+					if [[ $mergeLog =~ $regex_mergeId ]]; then
+						# save matched string to a variable
+						mergeId=${BASH_REMATCH[0]}
+						mergeId=${mergeId:1}
+						mergeUrl="https://gitlab.uuzu.com/xiyou/workspace/-/merge_requests/$mergeId"
+						echo "merge url: $mergeUrl"
+					else
+						echo "Not find mergeId"
+					fi
+
+					desc="问题描述"
+					echo "【提交日志】keyword:$keyword jiraId:$jiraId desc:$desc refname:$refname mergeUrl:$mergeUrl"
+					python "hooks/jiraCheck.py" $keyword $jiraId $desc $refname $mergeUrl
+		            flag=$?		
+					return
+				else													
+					IFS=' ' read -r keyword jiraId desc review<<<"$msg"
+		            echo '【提交日志】'$keyword $jiraId $desc $review
+					match=`echo $keyword | grep -nE "(${regex})"`
+		            #echo 'match info:'$match
+		            if [[ "${match}" == "" ]]; then
+						echo "提交不通过:" $msg
+						echo '**************************************************'
+		                echo '*     提交日志格式有误,拒绝提交,任务&缺陷提交示例如下		'
+						echo '* task SLPK-6666 这是一个任务的提交描述 Review:宣宣   '
+						echo '* fix SLPK-8888 这是一个bug修复的描述 Review:宣宣  '
+						echo '**************************************************'
+		                exit 1
+		            fi	
+	            fi
+
+				python "hooks/jiraCheck.py" $keyword $jiraId $desc $refname
+	            flag=$?
+                if (( $flag != 0 )); then
+                    exit 1
+                fi            
+            fi
+        done
+    fi
+}
+
+
+read oldrev newrev refname
+validate_ref $oldrev $newrev $refname
+
+if [ ${flag} -eq 1 ];then
+  	exit 1
+else
+	exit 0
+fi
