@@ -123,19 +123,19 @@ validate_ref()
 						mergeId=${BASH_REMATCH[0]}
 						mergeId=${mergeId:1}
 						mergeUrl="https://gitlab.uuzu.com/xiyou/workspace/-/merge_requests/$mergeId"
-						echo "merge url: $mergeUrl"
+						#echo "merge url: $mergeUrl"
 					else
 						echo "Not find mergeId"
 					fi
 
 					desc="问题描述"
-					echo "【提交日志】keyword:$keyword jiraId:$jiraId desc:$desc refname:$refname mergeUrl:$mergeUrl"
-					python "hooks/jiraCheck.py" $keyword $jiraId $desc $refname $mergeUrl
+					#echo "【提交日志】keyword:$keyword jiraId:$jiraId desc:$desc refname:$refname mergeUrl: $mergeUrl"
+					python "custom_hooks/jiraCheck.py" $keyword $jiraId $desc $refname $mergeUrl
 		            flag=$?		
 					return
 				else													
 					IFS=' ' read -r keyword jiraId desc review<<<"$msg"
-		            echo '【提交日志】'$keyword $jiraId $desc $review
+		            #echo '【提交日志】'$keyword $jiraId $desc $review
 					match=`echo $keyword | grep -nE "(${regex})"`
 		            #echo 'match info:'$match
 		            if [[ "${match}" == "" ]]; then
@@ -149,7 +149,7 @@ validate_ref()
 		            fi	
 	            fi
 
-				python "hooks/jiraCheck.py" $keyword $jiraId $desc $refname
+				python "custom_hooks/jiraCheck.py" $keyword $jiraId $desc $refname
 	            flag=$?
                 if (( $flag != 0 )); then
                     exit 1
