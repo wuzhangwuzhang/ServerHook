@@ -137,14 +137,20 @@ def main():
             print('jira单号:{0}提交分支名未指定,请找点咪修改该单号对应的提交分支,如果非要进版本,提交到Dev'.format(jiraId))
             sys.exit(1)
         else:
-            remoteName = branchName.split('/')[2].lower()
-            jiraBranchName = jiraBranchName.lower()
-            if jiraBranchName == remoteName:
-                print("提交通过:单号&分支正确,可以提交")
+            argCount = branchName.count("/")
+            #print("argCount:",argCount)
+            if argCount <= 3:
+                remoteName = branchName.split('/')[2].lower()
+                jiraBranchName = jiraBranchName.lower()
+                if jiraBranchName == remoteName:
+                    print("提交通过:单号&分支正确,可以提交")
+                    #add_MergeURL(jiraId,mergeUrl)
+                else:
+                    # url = "https://jira-pro.uuzu.com/browse/{0}".format(jiraId)
+                    print("提交不通过:{0} 分支校验不通过,应该提交到:【{1}】当前提交分支：【{2}】".format(jiraId,jiraBranchName, remoteName))
+                    sys.exit(1)
             else:
-                #url = "https://jira-pro.uuzu.com/browse/{0}".format(jiraId)
-                print("提交不通过:{0} 分支校验不通过,应该提交到:【{1}】当前提交分支：【{2}】".format(jiraId,jiraBranchName, remoteName))
-                sys.exit(1)
+                print("个人开发分支:[{0}] 提交检查通过".format(branchName))
 
 if __name__ == '__main__':
     main()

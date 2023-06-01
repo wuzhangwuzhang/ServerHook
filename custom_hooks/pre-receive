@@ -20,9 +20,9 @@ keyword_list=(
 )
 
 check_branchs=(
-	"dev"				#dev
-	"devob2"			#devob2
-	"oversearelease"	#oversearelease
+	#"dev"				#dev
+	#"master"			#master
+	#"oversearelease"	#oversearelease
 )
 
 # Concatenate keyword_list
@@ -34,6 +34,8 @@ regex="${regex:${#separator}}"
 
 
 flag=0
+isFeatureBranch=false
+
 validate_ref()
 {
     # --- Arguments
@@ -47,13 +49,12 @@ validate_ref()
 	IFS='/' read -ra arr <<< "$refname"
 	#echo ${#arr[@]}
 	if [ "${#arr[@]}" -ge 5 ]; then
-	  	echo "开发分支提交，不检查单号&&分支"
-		exit 0
+	  	#echo "当前是开发分支提交"
+		isFeatureBranch=true
 	fi
 
-
+	#echo "当前推送的分支:$refname"
 	branch="${arr[-1]}"
-	#echo "branch:$branch"
 	# 使用循环遍历整个数组，并判断每个元素是否包含 "err" 子字符串
 	index=0
 	for element in "${check_branchs[@]}"; do
@@ -65,9 +66,11 @@ validate_ref()
 	done
 
 	#echo $index  ${#arr[@]}
-	if [ ${index} == ${#arr[@]} ]; then
-		echo "no need check"
-		exit 0
+	if $isFeatureBranch ~= true; then
+		if [ ${index} == ${#arr[@]} ]; then
+			echo "no need check"
+			exit 0
+		fi
 	fi
 
     commitList=`git rev-list $oldrev..$newrev`
@@ -79,6 +82,7 @@ validate_ref()
             msg=`git cat-file commit $s | sed '1,/^$/d'`
 			#echo $msg 
             if [ ${#msg} -lt 5 ];then
+				echo "提交日志格式不正确:$msg"
                 exit 1
             else				
 				#trimedStr=$(echo -e $msg | sed ':a;N;$!ba;s/\n//g')
@@ -159,6 +163,37 @@ validate_ref()
     fi
 }
 
+#先拉取CDN配置的钩子检查开关及配置的检查分支
+result=`curl -s -H "Content-Type: application/text" "http://10.18.41.29/slpk/githook/hookSwitch.txt"`
+#echo "result:$result"
+# 匹配包含 "404 Not Found" 文件不存在
+if echo "${result}" | grep -q "404 Not Found"; then
+ 	echo "10.18.41.29/slpk/githook/hookSwitch.txt,钩子配置文件不存在,不检查."
+	exit 0
+fi
+
+# 文件存在，解析参数是否开启钩子和配置的检查分支
+IFS=$'\n' read -d '' -ra lines <<< "$result"
+switch=${lines[0]}
+branchCfg=${lines[1]}
+
+# 钩子未开启检查
+if [ ${switch} -eq 0 ]; then
+	echo "10.18.41.29/slpk/githook/hookSwitch.txt,钩子配置检查处于关闭,不检查."
+	exit 0
+fi
+
+# 钩子开启检查，获取解析需要检查的分支
+echo "钩子开关(1:检查 0:不检查):${switch} 已配置需要检查的分支:${branchCfg} (可动态调整)"
+IFS=$'|' read -d '' -ra branchs <<< "$branchCfg"
+if [ ${#branchs} -gt 0 ];then
+	index=0
+	for s in ${branchs[@]}
+	do
+		let index++
+		check_branchs[${index}]=$s
+	done
+fi
 
 read oldrev newrev refname
 validate_ref $oldrev $newrev $refname
