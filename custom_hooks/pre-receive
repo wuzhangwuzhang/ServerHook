@@ -47,7 +47,7 @@ validate_ref()
 	#echo 'refname:'$refname
 
 	IFS='/' read -ra arr <<< "$refname"
-	#echo ${#arr[@]}
+	#echo "分支层级深度:${#arr[@]}"
 	if [ "${#arr[@]}" -ge 5 ]; then
 	  	#echo "当前是开发分支提交"
 		isFeatureBranch=true

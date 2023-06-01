@@ -133,11 +133,14 @@ def main():
         sys.exit(1)
     else:
         jiraBranchName = result[1]
+        argCount = branchName.count("/")
         if len(result[1]) == 0:
-            print('jira单号:{0}提交分支名未指定,请找点咪修改该单号对应的提交分支,如果非要进版本,提交到Dev'.format(jiraId))
-            sys.exit(1)
+            if argCount <= 3:
+                print('jira单号:{0}提交分支名未指定,请找点咪修改该单号对应的提交分支,如果非要进版本,提交到Dev'.format(jiraId))
+                sys.exit(1)
+            else:
+                print('jira单号:{0}提交分支名未指定,功能特性分支，允许提交个人分支'.format(jiraId))
         else:
-            argCount = branchName.count("/")
             #print("argCount:",argCount)
             if argCount <= 3:
                 remoteName = branchName.split('/')[2].lower()
