@@ -80,7 +80,7 @@ validate_ref()
         for s in ${split[@]}
         do
             msg=`git cat-file commit $s | sed '1,/^$/d'`
-			#echo $msg 
+			#echo "提交日志:$msg" 
             if [ ${#msg} -lt 5 ];then
 				echo "提交日志格式不正确:$msg"
                 exit 1
@@ -93,15 +93,25 @@ validate_ref()
 	                exit 0
 				elif [[ $msg == *"Merge"* ]] || [[ $msg == *"merge"* ]]; then
 					# split string into lines
-					IFS=$'\n' read -d '' -ra lines <<< "$msg"				
-					mergeBranchInfo=${lines[0]}
-					commitLogInfo=${lines[1]}
-					mergeLog=${lines[2]}
-					#echo "[branchInfo]:$mergeBranchInfo"
-					#echo "[commitInfo]:$commitLogInfo"
-					#echo "[mergeInfo]:$mergeLog"
-					
+					IFS=$'\n' read -d '' -ra lines <<< "$msg"
+					#echo "lines length:${#lines[@]}"
+					if [ "${#lines[@]}" -eq 3 ]; then
+						mergeBranchInfo=${lines[0]}
+						commitLogInfo=${lines[1]}
+						mergeLog=${lines[2]}
+						echo "[branchInfo]:$mergeBranchInfo"
+						echo "[commitInfo]:$commitLogInfo"
+						echo "[mergeInfo]:$mergeLog"
+					elif [ "${#lines[@]}" -eq 4 ]; then
+						mergeBranchInfo=${lines[0]}
+						commitLogInfo=${lines[1]}
+						mergeLog=${lines[3]}
+						echo "[branchInfo]:$mergeBranchInfo"
+						echo "[commitInfo]:$commitLogInfo"
+						echo "[mergeInfo]:$mergeLog"
+					fi
 
+					
 					trimedStr=$(echo -e $commitLogInfo | sed ':a;N;$!ba;s/\n//g')
 					#echo "[Trim Log Blank]:" $trimedStr
 
@@ -114,8 +124,8 @@ validate_ref()
 						jiraId=${BASH_REMATCH[0]}
 						#echo "[jiraId]:$jiraId"
 					else
-						echo "No jiraId found in commit log."
-						exit 1
+						#echo "No jiraId found in merge log:$msg "
+						continue
 					fi
 
 					# define regular expression
