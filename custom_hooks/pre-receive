@@ -55,6 +55,7 @@ validate_ref()
 
 	#echo "当前推送的分支:$refname"
 	branch="${arr[-1]}"
+	#echo "branch:${branch}"
 	# 使用循环遍历整个数组，并判断每个元素是否包含 "err" 子字符串
 	index=0
 	for element in "${check_branchs[@]}"; do
@@ -65,8 +66,8 @@ validate_ref()
 		fi
 	done
 
-	#echo $index  ${#arr[@]}
-	if $isFeatureBranch ~= true; then
+	#echo $index  ${#arr[@]}  $isFeatureBranch
+	if [ $isFeatureBranch != true ]; then
 		if [ ${index} == ${#arr[@]} ]; then
 			echo "no need check"
 			exit 0
@@ -174,7 +175,7 @@ validate_ref()
 }
 
 #先拉取CDN配置的钩子检查开关及配置的检查分支
-result=`curl -s -H "Content-Type: application/text" "http://10.18.41.29/slpk/githook/hookSwitch.txt"`
+result=`curl -s -H "Content-Type: application/text" "http://10.18.41.29/githook/hookSwitch.txt"`
 #echo "result:$result"
 # 匹配包含 "404 Not Found" 文件不存在
 if echo "${result}" | grep -q "404 Not Found"; then
