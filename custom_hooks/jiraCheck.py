@@ -104,29 +104,27 @@ def add_MergeURL(jiraId,mergeUrl):
     jira.add_comment(issue, mergerLog)  # 添加评论
 
 def main():
-    # $keyword $jiraId $desc $branchName
+    # $keyword $jiraId $branchName
     argLength = len(sys.argv)
     keyword = ""
     jiraId = ""
-    desc = ""
     branchName = ""
     mergeUrl = ""
     #print("argLength:{0}".format(argLength))
-    if argLength >= 3:
+    if argLength >= 2:
         keyword = sys.argv[1]
         jiraId = sys.argv[2]
-        desc = sys.argv[3]
     else:
         print("[python] 参数不对")
         sys.exit(1)
 
+    if argLength > 3:
+        branchName = sys.argv[3]
+
     if argLength > 4:
-        branchName = sys.argv[4]
+        mergeUrl = sys.argv[4]
 
-    if argLength > 5:
-        mergeUrl = sys.argv[5]
-
-    #print("[python]:keyword:{0} jiraId:{1} desc:{2} refname:{3} mergeUrl:{4}".format(keyword, jiraId, desc, branchName,mergeUrl))
+    #print("[python]:keyword:{0} jiraId:{1} refname:{2} mergeUrl:{3}".format(keyword, jiraId, branchName,mergeUrl))
     result = checkJriaIdAndBranchName(jiraId)
     if result[0] == False:
         print("单号不存在(如果是管理员Merge的,请修改提交日志格式),先找策划或者QA开单吧!")
