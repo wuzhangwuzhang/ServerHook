@@ -72,7 +72,7 @@ class JiraTool(object):
 
 
 def checkJriaIdAndBranchName(jiraId):
-    server_addr, username, passwd, access_token = 'https://jira-pro.uuzu.com', 'xxx', 'xxx', 'MjY3Nzc1NjAyNDA2Oir4Hsi4Lc5duGqVvrTPTEg+jB+r'
+    server_addr, username, passwd, access_token = 'https://jira-pro.uuzu.com', 'xxx', 'xxx', 'NDc3Njc1NTcyOTYyOjYqRjlO0fsRe++6QSqey0bnQpHa'  #jira_robot
     jira_tool = JiraTool(server_addr, username, passwd, access_token)
     resultData = jira_tool.get_issue_by_id(jiraId)
     branchName = ""
@@ -95,7 +95,7 @@ def print_args(arg):
 
 def add_MergeURL(jiraId,mergeUrl):
     print(jiraId,mergeUrl)
-    jira = JIRA(server="https://jira-pro.uuzu.com", token_auth='MjY3Nzc1NjAyNDA2Oir4Hsi4Lc5duGqVvrTPTEg+jB+r')
+    jira = JIRA(server="https://jira-pro.uuzu.com", token_auth='NDc3Njc1NTcyOTYyOjYqRjlO0fsRe++6QSqey0bnQpHa')  #jira_robot
     issue = jira.issue(jiraId)
     print(issue.id)
     for comment in issue.fields.comment.comments:
