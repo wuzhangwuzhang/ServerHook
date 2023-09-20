@@ -36,6 +36,14 @@ regex="${regex:${#separator}}"
 flag=0
 isFeatureBranch=false
 
+#调试日志
+#current_date=$(date +"%Y%m%d")
+# 日志文件名
+#log_file="log_${current_date}.txt"
+
+# 打印日志文件名
+#echo "日志文件名: $log_file"
+
 validate_ref()
 {
     # --- Arguments
@@ -44,13 +52,14 @@ validate_ref()
     refname="$3"
 	#echo 'oldrev:'$oldrev
 	#echo 'newrev:'$newrev
-	#echo 'refname:'$refname
+	echo 'refname:'$refname
+	#echo '[shell] refname:'$refname >> $log_file
 
 	IFS='/' read -ra arr <<< "$refname"
 	#echo "分支层级深度:${#arr[@]}"
 	if [ "${#arr[@]}" -ge 5 ]; then
-	  	#echo "当前是开发分支提交"
 		isFeatureBranch=true
+		exit 0
 	fi
 
 	#echo "当前推送的分支:$refname"
@@ -69,7 +78,7 @@ validate_ref()
 	#echo $index  ${#arr[@]}  $isFeatureBranch
 	if [ $isFeatureBranch != true ]; then
 		if [ ${index} == ${#arr[@]} ]; then
-			echo "no need check"
+			echo "该分支无需钩子提交校验"
 			exit 0
 		fi
 	fi
@@ -81,7 +90,7 @@ validate_ref()
         for s in ${split[@]}
         do
             msg=`git cat-file commit $s | sed '1,/^$/d'`
-			#echo "提交日志:$msg" 
+			echo "提交日志:$msg" 
             if [ ${#msg} -lt 5 ];then
 				echo "提交日志格式不正确:$msg"
                 exit 1
@@ -145,12 +154,12 @@ validate_ref()
 
 					desc="问题描述"
 					#echo "【提交日志】keyword:$keyword jiraId:$jiraId desc:$desc refname:$refname mergeUrl: $mergeUrl"
-					python "custom_hooks/jiraCheck.py" $keyword $jiraId $refname $mergeUrl
+					python "custom_hooks/jiraCheck.py" $keyword $jiraId $desc $refname $mergeUrl
 		            flag=$?		
 					return
 				else													
-					IFS=' ' read -r keyword jiraId desc review<<<"$msg"					
-		            #echo '【提交日志】keyword:'$keyword 'jiraId:'$jiraId 'desc:'$desc 'review:'$review
+					IFS=' ' read -r keyword jiraId desc review<<<"$msg"
+		            #echo '【提交日志】'$keyword $jiraId $desc $review
 					match=`echo $keyword | grep -nE "(${regex})"`
 		            #echo 'match info:'$match
 		            if [[ "${match}" == "" ]]; then
@@ -161,16 +170,10 @@ validate_ref()
 						echo '* fix SLPK-8888 这是一个bug修复的描述 Review:宣宣  '
 						echo '**************************************************'
 		                exit 1
-		            fi
-
-					regex_jriaId='SLPK-[0-9]+'
-					if [[ $msg =~ $regex_jriaId ]]; then
-						jiraId=${BASH_REMATCH[0]}
-						#echo "[jiraId]:$jiraId"
-					fi
+		            fi	
 	            fi
 
-				python "custom_hooks/jiraCheck.py" $keyword $jiraId $refname
+				python "custom_hooks/jiraCheck.py" $keyword $jiraId $desc $refname
 	            flag=$?
                 if (( $flag != 0 )); then
                     exit 1
@@ -182,16 +185,10 @@ validate_ref()
 
 #先拉取CDN配置的钩子检查开关及配置的检查分支
 result=`curl -s -H "Content-Type: application/text" "http://10.18.41.29/githook/hookSwitch.txt"`
-#echo "result:$result"
+echo "result:$result"
 # 匹配包含 "404 Not Found" 文件不存在
 if echo "${result}" | grep -q "404 Not Found"; then
  	echo "http://10.18.41.29/githook/hookSwitch.txt,钩子配置文件不存在,不检查."
-	exit 0
-fi
-
-
-if echo "${result}" | grep -q "401 Authorization Required"; then
- 	echo "ttp://10.18.41.29/githook/hookSwitch.txt,没权限拉取钩子配置文件,不检查."
 	exit 0
 fi
 

@@ -6,8 +6,9 @@ import sys
 import json
 import base64
 import requests
+import logging
+import datetime
 #from jira import JIRA
-
 
 class JiraRestAPI(object):
     # Base Request URL
@@ -35,14 +36,15 @@ class JiraTool(object):
             if self.access_token is not None:
                 headers.update({'Authorization': 'Bearer {}'.format(self.access_token)})
             else:
-                auth_base64 = base64.b64encode(self.username + ':' + self.passwd)
-                headers.update({'Authorization': 'Basic {}'.format(auth_base64)})
+                auth_base64 = base64.b64encode((self.username + ':' + self.passwd).encode())
+                headers.update({'Authorization': 'Basic {}'.format(auth_base64.decode())})
 
             payload = json.dumps(payload) if payload else {}
             response = requests.request(method, url, headers=headers, data=payload, timeout=10)
             # print(response, response.text)
             return response.status_code, response.json()
         except ConnectionError:
+            logger.error("jira connect error!!!")
             return 500, {}
 
     def get_jira_user_list(self):
@@ -71,88 +73,122 @@ class JiraTool(object):
         return self.request_jira_reseapi(jira_api, 'GET')
 
 
-def checkJriaIdAndBranchName(jiraId):
-    server_addr, username, passwd, access_token = 'https://jira-pro.uuzu.com', 'xxx', 'xxx', 'NDc3Njc1NTcyOTYyOjYqRjlO0fsRe++6QSqey0bnQpHa'  #jira_robot
+def checkJiraIdAndBranchName(jiraId):
+    server_addr, username, passwd, access_token = 'https://jira-pro.uuzu.com','SL_bot', 'qwe123',''  #'MjY3Nzc1NjAyNDA2Oir4Hsi4Lc5duGqVvrTPTEg+jB+r'
     jira_tool = JiraTool(server_addr, username, passwd, access_token)
     resultData = jira_tool.get_issue_by_id(jiraId)
-    branchName = ""
+    branchNames = []
     if resultData[0] == 200:
         # branchName = resultData[1]['fields']['fixVersions'][0]['name'].split('_')[1]
         fixVersions = resultData[1]['fields']['fixVersions']
         if fixVersions is not None and len(fixVersions) > 0:
-            if '_' in fixVersions[0]['name']:
-                versionArgs = fixVersions[0]['name'].split('_')
-                branchName = versionArgs[1]
-        # print("单号：{0} 存在,可以提交,提交分支：{1}".format(jiraId, branchName))
-        return True,branchName
+            for i in range(len(fixVersions)):
+                # print(fixVersions[i]['name'])
+                if '_' in fixVersions[i]['name']:
+                    versionArgs = fixVersions[i]['name'].split('_')
+                    branchNames.append(versionArgs[1].lower())
+        # for data in branchNames:
+        #     print(data)
+        #print("单号:[{0}]存在,可以提交,允许提交分支：{1}".format(jiraId, listtostring(branchNames,',')))
+        return True,branchNames
     else:
-        # print("单号：{0} 不存在,禁止提交 {1}".format(jiraId, branchName))
-        return False,branchName
+        #logger.error("单号:[{0}]不存在,禁止提交".format(jiraId))
+        return False,branchNames
 
 
 def print_args(arg):
     print(arg)
 
 def add_MergeURL(jiraId,mergeUrl):
-    print(jiraId,mergeUrl)
-    jira = JIRA(server="https://jira-pro.uuzu.com", token_auth='NDc3Njc1NTcyOTYyOjYqRjlO0fsRe++6QSqey0bnQpHa')  #jira_robot
-    issue = jira.issue(jiraId)
-    print(issue.id)
-    for comment in issue.fields.comment.comments:
-        print(comment.body)
-    mergerLog = "[查看git变更|{0}]".format(mergeUrl)
-    jira.add_comment(issue, mergerLog)  # 添加评论
+    # print(jiraId,mergeUrl)
+    # jira = JIRA(server="https://jira-pro.uuzu.com", token_auth='MjY3Nzc1NjAyNDA2Oir4Hsi4Lc5duGqVvrTPTEg+jB+r')
+    # issue = jira.issue(jiraId)
+    # print(issue.id)
+    # for comment in issue.fields.comment.comments:
+    #     print(comment.body)
+    # mergerLog = "[查看git变更|{0}]".format(mergeUrl)
+    # jira.add_comment(issue, mergerLog)  # 添加评论
+    return
+
+def listtostring(lst, delimiter=''):
+    """
+    将list转为字符串
+    :param lst: list, 待转化为字符串的列表
+    :param delimiter: str, 列表中各个元素的分隔符，默认为''
+    :return: str, 转化后的字符串
+    """
+    return delimiter.join(map(str, lst))
 
 def main():
-    # $keyword $jiraId $branchName
+    # $keyword $jiraId $desc $branchName
     argLength = len(sys.argv)
     keyword = ""
-    jiraId = ""
-    branchName = ""
+    jiraId = ""             #SLPK-19897  jira测试单号
+    desc = ""
+    refBranchName = ""      #refs/head/hy/dev/SLPK-27685
     mergeUrl = ""
     #print("argLength:{0}".format(argLength))
-    if argLength >= 2:
+    if argLength >= 3:
         keyword = sys.argv[1]
         jiraId = sys.argv[2]
+        desc = sys.argv[3]
     else:
-        print("[python] 参数不对")
+        logger.error("[python] 参数不对")
         sys.exit(1)
-
-    if argLength > 3:
-        branchName = sys.argv[3]
 
     if argLength > 4:
-        mergeUrl = sys.argv[4]
+        refBranchName = sys.argv[4]
 
-    #print("[python]:keyword:{0} jiraId:{1} refname:{2} mergeUrl:{3}".format(keyword, jiraId, branchName,mergeUrl))
-    result = checkJriaIdAndBranchName(jiraId)
-    if result[0] == False:
+    if argLength > 5:
+        mergeUrl = sys.argv[5]
+
+    #logger.info("[python]:keyword:{0} jiraId:{1} desc:{2} refname:{3} mergeUrl:{4}".format(keyword, jiraId, desc, refBranchName,mergeUrl))
+    result,branchNames = checkJiraIdAndBranchName(jiraId)
+    logger.info("jira查询结果:{0} 单号:{1}上可提交分支个数:{2} 单号允许提交分支:{3}\n".format(result,jiraId,len(branchNames),branchNames))
+    if not result:
         print("单号不存在(如果是管理员Merge的,请修改提交日志格式),先找策划或者QA开单吧!")
+        #logger.error("单号不存在(如果是管理员Merge的,请修改提交日志格式),先找策划或者QA开单吧!\n")
         sys.exit(1)
     else:
-        jiraBranchName = result[1]
-        argCount = branchName.count("/")
-        if len(result[1]) == 0:
+        if refBranchName == "":
+            logger.error("远程分支获取失败!")
+            sys.exit(1)
+
+        argCount = refBranchName.count("/")
+        if argCount == 0:
+            logger.error("*远程分支格式错误:{0}*".format(refBranchName))
+            return
+
+        if len(branchNames) == 0:
             if argCount <= 3:
                 print('jira单号:{0}提交分支名未指定,请找点咪修改该单号对应的提交分支,如果非要进版本,提交到Dev'.format(jiraId))
                 sys.exit(1)
             else:
                 print('jira单号:{0}提交分支名未指定,功能特性分支，允许提交个人分支'.format(jiraId))
         else:
-            #print("argCount:",argCount)
+            # print("refBranchName argCount:",argCount)
             if argCount <= 3:
-                remoteName = branchName.split('/')[2].lower()
-                jiraBranchName = jiraBranchName.lower()
-                if jiraBranchName == remoteName:
-                    print("提交通过:单号&分支正确,可以提交")
+                remoteName = refBranchName.split('/')[2].lower()
+                if remoteName in branchNames:
+                    print("提交通过,单号:【{0}】分支:【{1}】校验通过,可以提交\n".format(jiraId,refBranchName))
                     #add_MergeURL(jiraId,mergeUrl)
                 else:
                     # url = "https://jira-pro.uuzu.com/browse/{0}".format(jiraId)
-                    print("提交不通过:{0} 分支校验不通过,应该提交到:【{1}】当前提交分支：【{2}】".format(jiraId,jiraBranchName, remoteName))
+                    logger.info("提交不通过:{0} 分支校验不通过,可以提交到:【{1}】当前提交分支：【{2}】\n".format(jiraId,listtostring(branchNames,','), remoteName))
+                    print("提交不通过:{0} 分支校验不通过,可以提交到:【{1}】当前提交分支：【{2}】\n".format(jiraId,listtostring(branchNames,','), remoteName))
                     sys.exit(1)
             else:
-                print("个人开发分支:[{0}] 提交检查通过".format(branchName))
+                logger.info("个人开发分支:[{0}] 提交检查通过\n".format(refBranchName))
 
 if __name__ == '__main__':
-    main()
+    current_date = datetime.date.today().strftime("%Y")
+    filename = "log_{0}.txt".format(current_date)
+    print("日志名:{0}".format(filename))
 
+    Log_Format = "%(levelname)s %(asctime)s - %(message)s"
+    logging.basicConfig(filename=filename,
+                        filemode="a",
+                        format=Log_Format,
+                        level=logging.DEBUG)
+    logger = logging.getLogger()
+    main()
