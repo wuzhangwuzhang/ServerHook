@@ -170,7 +170,13 @@ validate_ref()
 						echo '* fix SLPK-8888 这是一个bug修复的描述 Review:宣宣  '
 						echo '**************************************************'
 		                exit 1
-		            fi	
+		            fi
+
+					regex_jriaId='SLPK-[0-9]+'
+					if [[ $msg =~ $regex_jriaId ]]; then
+						jiraId=${BASH_REMATCH[0]}
+						#echo "[jiraId]:$jiraId"
+					fi
 	            fi
 
 				python "custom_hooks/jiraCheck.py" $keyword $jiraId $desc $refname
@@ -189,6 +195,12 @@ echo "result:$result"
 # 匹配包含 "404 Not Found" 文件不存在
 if echo "${result}" | grep -q "404 Not Found"; then
  	echo "http://10.18.41.29/githook/hookSwitch.txt,钩子配置文件不存在,不检查."
+	exit 0
+fi
+
+
+if echo "${result}" | grep -q "401 Authorization Required"; then
+ 	echo "http://10.18.41.29/githook/hookSwitch.txt,没权限拉取钩子配置文件,不检查."
 	exit 0
 fi
 
